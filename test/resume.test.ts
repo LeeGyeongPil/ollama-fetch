@@ -1,6 +1,7 @@
 // AC-5: 이어받기와 무결성 — ① 40% 끊김 → Range 206 이어받기 ② Range 무시 200 → 처음부터 ③ 항상 손상 → 종료 코드 3
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 import { main } from '../src/main.js';
@@ -40,7 +41,7 @@ describe('AC-5 resume and integrity', () => {
       const modelsDir = await tempDir();
       const events = await pullCollecting(registry.url, modelsDir);
 
-      const drop = events.find((e) => e.type === 'drop');
+      const drop = events.find((e) => e.type === 'drop' && e.digest === modelDigest);
       const resume = events.find((e) => e.type === 'resume');
       assert.ok(drop && drop.type === 'drop', 'a drop happened');
       assert.ok(resume && resume.type === 'resume', 'a resume happened');
@@ -113,15 +114,23 @@ describe('AC-5 resume and integrity', () => {
       const modelsDir = await tempDir();
       const controller = new AbortController();
       const cap = captureCtx(undefined, { signal: controller.signal });
-      const timer = setTimeout(() => controller.abort(), 600); // 1 MiB/s 로 받는 중간에 멈춘다
+      const partial = join(modelsDir, 'blobs', `sha256-${modelHex}.ollama-fetch.partial`);
+      // 고정 시간(예: 600 ms) 뒤에 멈추면 느린 CI 러너에서 모델 블롭을 받기 전에 멈출 수 있다.
+      // 그래서 partial 에 64 KiB 이상 쌓인 것을 확인한 순간 멈춘다(1 MiB/s 라 약 2 MiB 중 앞부분).
+      const poll = setInterval(() => {
+        stat(partial).then(
+          (s) => {
+            if (s.size >= 64 * 1024) controller.abort();
+          },
+          () => undefined, // 아직 partial 이 없다
+        );
+      }, 10);
       const code = await main(
         ['pull', 'tiny', '--registry', registry.url, '--models-dir', modelsDir, '--limit-rate', '1M'],
         cap.ctx,
-      );
-      clearTimeout(timer);
+      ).finally(() => clearInterval(poll));
       assert.equal(code, 130, cap.err());
       assert.match(cap.err(), /Interrupted/);
-      const partial = join(modelsDir, 'blobs', `sha256-${modelHex}.ollama-fetch.partial`);
       assert.equal(existsSync(partial), true, 'partial kept');
       assert.equal(existsSync(join(modelsDir, 'manifests')), false);
 
@@ -145,14 +154,15 @@ describe('AC-5 resume and integrity', () => {
         registry: registry.url,
         rateLimit: 0,
         connections: 1,
-        retries: 2,
-        stallTimeoutMs: 300,
+        retries: 3,
+        // 너무 짧으면 붐비는 CI 러너에서 정상 블롭의 덩어리 사이 간격도 정체로 오인할 수 있어 1초로 둔다
+        stallTimeoutMs: 1000,
         sleep: async () => undefined,
         onEvent: (e) => events.push(e),
       });
-      const drop = events.find((e) => e.type === 'drop');
+      const drop = events.find((e) => e.type === 'drop' && e.digest === modelDigest);
       assert.ok(drop && drop.type === 'drop');
-      assert.match(drop.reason, /no data for 300 ms/);
+      assert.match(drop.reason, /no data for 1000 ms/);
       assert.ok(events.some((e) => e.type === 'resume'));
       assert.equal(await sha256OfFile(join(modelsDir, 'blobs', `sha256-${modelHex}`)), modelHex);
     } finally {

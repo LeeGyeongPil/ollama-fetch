@@ -11,6 +11,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # 멈춘 테스트가 기본 6시간을 붙들지 않게(정상 실행은 1분 안쪽)
     strategy:
       fail-fast: false
       matrix:

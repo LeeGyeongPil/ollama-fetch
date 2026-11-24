@@ -192,7 +192,14 @@ export async function startMockRegistry(options: { models: MockModel[]; faults?:
       const dropAt = drop && drop.digest === digest ? Math.floor(size * drop.fraction) : -1;
       if (drop && dropAt > start && (drops.get(digest) ?? 0) < drop.times) {
         drops.set(digest, (drops.get(digest) ?? 0) + 1);
-        res.write(body.subarray(start, dropAt), () => req.socket.destroy());
+        // destroy() 대신 end(): 보낸 바이트를 다 넘긴 뒤 FIN 으로 닫는다. Linux 는 받지 않은 데이터가 남은 소켓을
+        // close 하면 RST 를 보내 상대가 아직 읽지 않은 바이트까지 버리게 할 수 있어, 끊긴 위치가 운영체제마다 달라진다.
+        // 상대가 닫지 않으면 1초 뒤 강제로 닫는다(unref 라 프로세스 종료를 막지 않는다).
+        res.write(body.subarray(start, dropAt), () => {
+          const socket = req.socket;
+          socket.end();
+          setTimeout(() => socket.destroy(), 1000).unref();
+        });
         return;
       }
       // 정체 장애: fraction 지점까지 보내고 아무것도 더 보내지 않는다(close() 때 정리된다)
