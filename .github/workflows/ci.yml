@@ -1,4 +1,6 @@
 # 키·모델·네트워크 없이 모의(mock) 레지스트리와 합성 GGUF 로 전체 흐름을 검증한다(Node.js·TypeScript).
+# 단순하게: Linux 러너 하나, 지원하는 Node LTS 세 개, 의존성 캐시 없음(개발 의존성 3개뿐이라 캐시 이득이 없다).
+# 단계마다 이름을 붙여 어느 단계가 깨졌는지 바로 보이게 하고, 실패하면 진단 정보를 출력한다.
 name: ci
 on:
   push:
@@ -10,21 +12,43 @@ permissions:
   contents: read
 jobs:
   test:
+    name: test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     timeout-minutes: 15   # 멈춘 테스트가 기본 6시간을 붙들지 않게(정상 실행은 1분 안쪽)
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22, 24]
+        node: ["20", "22", "24"]
+    defaults:
+      run:
+        shell: bash
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Set up Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci
-      - run: npm test
+      - name: Show environment
+        run: |
+          node --version
+          npm --version
+          uname -a
+          echo "cpus: $(nproc)  tmp: ${TMPDIR:-/tmp}  lang: ${LANG:-unset}"
+      - name: Install (npm ci)
+        run: npm ci --no-audit --no-fund
+      - name: Build (tsc)
+        run: npm run build
+      - name: Test (mock registry)
+        run: npm test
         env:
           DEMO_MODE: mock
-      - run: npm run demo -- --lang en
-      - run: npm run build
+      - name: Offline demo
+        run: npm run demo -- --lang en
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          echo "--- versions"; node --version; npm --version; npx --no-install tsc --version || true
+          echo "--- tracked vs compiled tests"; ls test; ls dist/test || true
+          echo "--- limits"; ulimit -a || true; df -h /tmp || true; free -m || true
+          echo "--- leftover temp dirs"; ls -d /tmp/ollama-fetch-* 2>/dev/null | head -20 || true
