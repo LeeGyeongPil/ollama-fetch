@@ -77,7 +77,7 @@ ollama-fetch pull llama3.2:1b --limit-rate 3M
 Exit codes: `0` ok, `1` usage error, `2` bad input (not a GGUF, missing shard, bad model name, no write permission), `3` digest mismatch, `4` network failure, `130` interrupted (the partial file is kept, run again to resume).
 
 ### Preview before downloading
-With `--registry <url>` pointing at a registry (the output below is from a local mock registry used for testing), `--dry-run` lists every layer and estimates the time at your cap:
+With `--registry <url>` pointing at a registry (the output below is from a local mock registry used for testing; it is the test server in `src/mock/registry-server.ts` on a random port, with no separate start command, so point `--registry` at a real mirror to try it), `--dry-run` lists every layer and estimates the time at your cap:
 
 ```
 Model       registry.ollama.ai/library/tiny:latest
