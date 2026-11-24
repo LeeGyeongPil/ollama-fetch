@@ -1,0 +1,47 @@
+{
+  "name": "ollama-fetch",
+  "version": "0.1.0",
+  "description": "Rate-limited, resumable, digest-verified Ollama model downloader that also merges split GGUF shards and registers them in OLLAMA_MODELS.",
+  "keywords": [
+    "ollama",
+    "gguf",
+    "llm",
+    "download",
+    "rate-limit",
+    "resume",
+    "llama.cpp",
+    "cli"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeeGyeongPil/ollama-fetch.git"
+  },
+  "homepage": "https://github.com/LeeGyeongPil/ollama-fetch#readme",
+  "bugs": {
+    "url": "https://github.com/LeeGyeongPil/ollama-fetch/issues"
+  },
+  "type": "module",
+  "bin": {
+    "ollama-fetch": "dist/src/cli.js"
+  },
+  "files": [
+    "dist/src",
+    "README.md",
+    "README.ko.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "tsc -p . && node --test dist/test/",
+    "demo": "tsc -p . && node dist/src/cli.js demo",
+    "prepare": "tsc -p ."
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "typescript": "6.0.3"
+  }
+}
