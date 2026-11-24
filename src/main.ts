@@ -10,8 +10,9 @@ import { AppError, EXIT, isAbortError, UsageError } from './errors.js';
 import { createTranslator, type Lang, resolveLang, type Translate } from './i18n.js';
 import { mergeToFile, planMerge } from './merge.js';
 import { formatBytes, formatElapsed, formatRate, parseRate, planBlobs, renderPlan } from './plan.js';
-import { allBlobs, pullModel } from './pull.js';
-import { fetchManifest } from './registry.js';
+import { allBlobs, type PullEvent, pullModel } from './pull.js';
+import type { Clock } from './ratelimit.js';
+import { fetchManifest, type FetchLike } from './registry.js';
 import { type ModelRef, parseRef, refShort, refToString, registryBase } from './ref.js';
 import { createPullReporter, type Output, Printer } from './report.js';
 import { resolveModelsDir } from './store.js';
@@ -20,9 +21,28 @@ export interface CliContext extends Output {
   env: NodeJS.ProcessEnv;
   /** Ctrl+C 등으로 멈출 때 */
   signal?: AbortSignal;
-  /** 테스트에서 재시도 대기를 줄이려고 바꿔 끼운다 */
+  /** 테스트에서 재시도 대기를 줄이려고 바꿔 끼운다(없으면 clock.sleep, 그것도 없으면 실제 타이머) */
   sleep?: Sleep;
   retryDelayMs?: (failure: number) => number;
+  /** 네트워크 전송을 바꿔 끼운다(단위 테스트·메모리 데모: 모의 레지스트리의 메모리 fetch). 없으면 전역 fetch */
+  fetchImpl?: FetchLike;
+  /** 속도 상한·경과 시간에 쓰는 시계(단위 테스트: 가짜 시계). 없으면 실제 시계 */
+  clock?: Clock;
+  /** pull 이벤트를 화면 출력과 함께 받아 본다(테스트가 진행 중 중단 시점을 고를 때) */
+  onPullEvent?: (event: PullEvent) => void;
+}
+
+/** 재시도 대기: ctx.sleep > 가짜 시계의 sleep > 실제 타이머 */
+function retrySleep(ctx: CliContext): Sleep {
+  if (ctx.sleep) return ctx.sleep;
+  const clock = ctx.clock;
+  if (clock) {
+    return async (ms, signal) => {
+      signal?.throwIfAborted();
+      await clock.sleep(ms);
+    };
+  }
+  return defaultSleep;
 }
 
 export function packageVersion(): string {
@@ -172,7 +192,7 @@ async function runPull(args: string[], values: Values, ctx: CliContext, t: Trans
 
   if (values['dry-run']) {
     // 매니페스트만 받아 표를 보여 주고 끝낸다. 폴더를 만들지도 않는다.
-    const { manifest } = await fetchManifest(ref, { registry, signal: ctx.signal });
+    const { manifest } = await fetchManifest(ref, { registry, signal: ctx.signal, fetchImpl: ctx.fetchImpl });
     const rows = await planBlobs(modelsDir, allBlobs(manifest));
     ctx.stdout(t('plan_title', { ref: refToString(ref), registry: where, modelsDir }) + '\n');
     for (const line of renderPlan(rows, rateLimit, t)) ctx.stdout(line + '\n');
@@ -187,7 +207,12 @@ async function runPull(args: string[], values: Values, ctx: CliContext, t: Trans
       modelsDir,
     }),
   );
-  const reporter = createPullReporter(t, printer);
+  // 진행 줄(0.25초 타이머)은 터미널에서만, -q 가 아닐 때만 만든다
+  const reporter = createPullReporter(t, printer, { live: !quiet && ctx.isTTY === true });
+  const onEvent = (event: PullEvent) => {
+    reporter.onEvent(event);
+    ctx.onPullEvent?.(event);
+  };
   let result;
   try {
     result = await pullModel({
@@ -198,9 +223,11 @@ async function runPull(args: string[], values: Values, ctx: CliContext, t: Trans
       connections,
       retries,
       signal: ctx.signal,
-      sleep: ctx.sleep ?? defaultSleep,
+      sleep: retrySleep(ctx),
       retryDelayMs: ctx.retryDelayMs,
-      onEvent: reporter.onEvent,
+      clock: ctx.clock,
+      fetchImpl: ctx.fetchImpl,
+      onEvent,
     });
   } finally {
     reporter.stop();

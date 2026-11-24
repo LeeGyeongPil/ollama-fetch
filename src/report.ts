@@ -53,8 +53,16 @@ export class Printer {
   }
 }
 
-/** pull 이벤트 → 화면. stop() 을 꼭 불러 진행 타이머를 정리한다 */
-export function createPullReporter(t: Translate, printer: Printer, now: () => number = () => performance.now()) {
+/**
+ * pull 이벤트 → 화면. stop() 을 꼭 불러 진행 타이머를 정리한다.
+ * live 가 false 면(파이프·-q·테스트) 덮어쓰는 진행 줄도, 그 타이머도 만들지 않는다.
+ */
+export function createPullReporter(
+  t: Translate,
+  printer: Printer,
+  options: { live?: boolean; now?: () => number } = {},
+) {
+  const now = options.now ?? (() => performance.now());
   let total = 0;
   let done = 0;
   let windowStart = now();
@@ -62,7 +70,7 @@ export function createPullReporter(t: Translate, printer: Printer, now: () => nu
   let speed = 0;
   const blobSizes = new Map<string, number>();
 
-  const timer = setInterval(() => {
+  const tick = () => {
     // 최근 구간 속도(지수 평활)로 남은 시간을 계산한다
     const elapsed = (now() - windowStart) / 1000;
     if (elapsed > 0) speed = speed === 0 ? windowBytes / elapsed : speed * 0.7 + (windowBytes / elapsed) * 0.3;
@@ -79,8 +87,9 @@ export function createPullReporter(t: Translate, printer: Printer, now: () => nu
         }),
       );
     }
-  }, 250);
-  timer.unref(); // 진행 표시 때문에 프로세스가 끝나지 못하는 일이 없게
+  };
+  const timer = options.live ? setInterval(tick, 250) : undefined;
+  timer?.unref(); // 진행 표시 때문에 프로세스가 끝나지 못하는 일이 없게
 
   const onEvent = (event: PullEvent) => {
     switch (event.type) {
@@ -153,7 +162,7 @@ export function createPullReporter(t: Translate, printer: Printer, now: () => nu
   return {
     onEvent,
     stop: () => {
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
       printer.clearProgress();
     },
   };

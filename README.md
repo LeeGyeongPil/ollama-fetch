@@ -13,7 +13,7 @@ A rate-limited, resumable, digest-verified downloader for Ollama models. It writ
 - You already downloaded split GGUF shards from Hugging Face and want one Ollama model without building llama.cpp ([ollama/ollama#2006](https://github.com/ollama/ollama/issues/2006), [#5245](https://github.com/ollama/ollama/issues/5245)).
 
 ## Install
-Requires Node.js 20 or newer (`brew install node` on macOS, or see [nodejs.org](https://nodejs.org/)). It has no runtime dependencies. Install it from the clone:
+Requires Node.js 22 or newer (`brew install node` on macOS, or see [nodejs.org](https://nodejs.org/)). It has no runtime dependencies. Install it from the clone:
 
 ```bash
 git clone https://github.com/LeeGyeongPil/ollama-fetch
@@ -114,8 +114,7 @@ It checks that every shard is there and that the `split.*` metadata agrees, writ
 |---|---|
 | `OLLAMA_MODELS` | Ollama models folder (default `~/.ollama/models`); `--models-dir` overrides |
 | `OLLAMA_FETCH_LANG` | Screen language `en` or `ko`; `--lang` overrides, then `LC_ALL`, `LC_MESSAGES`, `LANG` are read (a value starting with `ko` means Korean, anything else English) |
-| `HTTPS_PROXY` | Proxy. Node's `fetch` ignores it unless `NODE_USE_ENV_PROXY=1` is set (Node 24+); the CLI prints a hint |
-| `OLLAMA_FETCH_E2E` | Set to `1` to include the optional real-network test in `npm test` |
+| `HTTPS_PROXY` | Proxy. Node's `fetch` ignores it unless `NODE_USE_ENV_PROXY=1` is set (recent Node.js releases only); the CLI prints a hint |
 
 No API keys or tokens are read or written; only anonymous public downloads are made.
 
@@ -178,7 +177,7 @@ Sources: [odir README](https://docs.rs/crate/odir/latest/source/README.md), the 
 | `missing shard(s) of 3 ...` (exit 2) | Not all shards are in the same folder | Download the rest, keep the original names |
 | Exit 3 | Downloaded bytes never matched the digest | Run again; check disk and mirror |
 | Exit 4 | Connection kept failing without progress | Run again; it resumes from the partial file |
-| Cannot reach the registry behind a proxy | Node `fetch` ignores `HTTPS_PROXY` | `NODE_USE_ENV_PROXY=1 ollama-fetch pull ...` (Node 24+) |
+| Cannot reach the registry behind a proxy | Node `fetch` ignores `HTTPS_PROXY` | `NODE_USE_ENV_PROXY=1 ollama-fetch pull ...` (recent Node.js releases only) |
 | Slow start on a re-run with big models | Existing blobs are re-hashed on every run (a few seconds per GB) | Expected; wait for the check to finish |
 | Two pulls of the same model at once waste work | No cross-process lock | Run one pull per model at a time |
 | Model not shown by `ollama list` | Different models folder | Pass `--models-dir` the same as the server's `OLLAMA_MODELS` |
@@ -186,10 +185,12 @@ Sources: [odir README](https://docs.rs/crate/odir/latest/source/README.md), the 
 ## Development
 
 ```bash
-npm test
+npm test            # unit tests: in-memory mock registry, fake clock, no sockets, no real waiting
+npm run test:net    # tests over real local sockets (HTTP mock registry, fault injection)
+npm run test:e2e    # optional, manual: downloads a small file from Hugging Face (not the Ollama registry), needs internet
 ```
 
-Tests run against a real local HTTP mock registry and synthetic GGUF files, with fault injection (drops, hangs, ignored Range, corrupt bytes). Bugs and ideas are welcome as issues. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+`npm test` is hermetic: a network guard fails any test that opens a socket. The socket tests inject faults (drops, hangs, ignored Range, corrupt bytes). Bugs and ideas are welcome as issues. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 MIT. The demo uses synthetic data only; no model files are bundled.

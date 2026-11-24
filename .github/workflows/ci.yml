@@ -1,54 +1,24 @@
-# 키·모델·네트워크 없이 모의(mock) 레지스트리와 합성 GGUF 로 전체 흐름을 검증한다(Node.js·TypeScript).
-# 단순하게: Linux 러너 하나, 지원하는 Node LTS 세 개, 의존성 캐시 없음(개발 의존성 3개뿐이라 캐시 이득이 없다).
-# 단계마다 이름을 붙여 어느 단계가 깨졌는지 바로 보이게 하고, 실패하면 진단 정보를 출력한다.
+# Checks every push to main and every pull request with the hermetic unit suite.
+# `npm test` compiles TypeScript and runs test/unit with an in-memory mock registry,
+# a fake clock and a network guard: no sockets, no real waiting, no internet.
+# Real-socket tests (`npm run test:net`) and internet tests (`npm run test:e2e`) run locally only.
+# Actions are pinned to full commit SHAs; the comment shows the release tag.
 name: ci
 on:
   push:
+    branches: [main]
   pull_request:
-  schedule:
-    - cron: "17 3 * * 1"   # 매주 월요일 — 의존성·런타임이 바뀌어 깨지지 않았는지 정기 확인
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   test:
-    name: test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15   # 멈춘 테스트가 기본 6시간을 붙들지 않게(정상 실행은 1분 안쪽)
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ["20", "22", "24"]
-    defaults:
-      run:
-        shell: bash
+    timeout-minutes: 10
     steps:
-      - name: Check out
-        uses: actions/checkout@v7
-      - name: Set up Node.js ${{ matrix.node }}
-        uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: ${{ matrix.node }}
-      - name: Show environment
-        run: |
-          node --version
-          npm --version
-          uname -a
-          echo "cpus: $(nproc)  tmp: ${TMPDIR:-/tmp}  lang: ${LANG:-unset}"
-      - name: Install (npm ci)
-        run: npm ci --no-audit --no-fund
-      - name: Build (tsc)
-        run: npm run build
-      - name: Test (mock registry)
-        run: npm test
-        env:
-          DEMO_MODE: mock
-      - name: Offline demo
-        run: npm run demo -- --lang en
-      - name: Diagnostics on failure
-        if: failure()
-        run: |
-          echo "--- versions"; node --version; npm --version; npx --no-install tsc --version || true
-          echo "--- tracked vs compiled tests"; ls test; ls dist/test || true
-          echo "--- limits"; ulimit -a || true; df -h /tmp || true; free -m || true
-          echo "--- leftover temp dirs"; ls -d /tmp/ollama-fetch-* 2>/dev/null | head -20 || true
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - run: npm test

@@ -13,7 +13,7 @@
 - Hugging Face 에서 받은 분할 GGUF 를 llama.cpp 빌드 없이 Ollama 모델 하나로 만들고 싶은 분 ([ollama/ollama#2006](https://github.com/ollama/ollama/issues/2006), [#5245](https://github.com/ollama/ollama/issues/5245))
 
 ## 설치
-Node.js 20 이상이 필요합니다(macOS: `brew install node`, 그 밖에는 [nodejs.org](https://nodejs.org/)). 실행 시 의존 패키지는 없습니다. 클론해서 설치합니다.
+Node.js 22 이상이 필요합니다(macOS: `brew install node`, 그 밖에는 [nodejs.org](https://nodejs.org/)). 실행 시 의존 패키지는 없습니다. 클론해서 설치합니다.
 
 ```bash
 git clone https://github.com/LeeGyeongPil/ollama-fetch
@@ -114,8 +114,7 @@ ollama run my-model   # 채팅 템플릿은 등록되지 않음, "한계와 로�
 |---|---|
 | `OLLAMA_MODELS` | Ollama 모델 폴더(기본 `~/.ollama/models`), `--models-dir` 이 우선 |
 | `OLLAMA_FETCH_LANG` | 화면 언어 `en` 또는 `ko`. `--lang` 이 우선이고, 그다음 `LC_ALL`·`LC_MESSAGES`·`LANG` 을 봅니다(`ko` 로 시작하면 한국어, 아니면 영어) |
-| `HTTPS_PROXY` | 프록시. Node 의 `fetch` 는 `NODE_USE_ENV_PROXY=1`(Node 24+)이 없으면 무시하며, CLI 가 안내를 출력합니다 |
-| `OLLAMA_FETCH_E2E` | `1` 이면 `npm test` 에 선택 사항인 실제 네트워크 테스트를 포함 |
+| `HTTPS_PROXY` | 프록시. Node 의 `fetch` 는 `NODE_USE_ENV_PROXY=1`(최근 Node.js 버전만 지원)이 없으면 무시하며, CLI 가 안내를 출력합니다 |
 
 API 키·토큰은 읽거나 쓰지 않습니다. 익명 공개 다운로드만 합니다.
 
@@ -178,7 +177,7 @@ flowchart LR
 | `missing shard(s) of 3 ...` (종료 2) | 샤드가 한 폴더에 다 있지 않음 | 나머지를 받고 원래 파일 이름 유지 |
 | 종료 3 | 받은 바이트가 끝내 다이제스트와 맞지 않음 | 다시 실행, 디스크·미러 확인 |
 | 종료 4 | 진전 없이 연결이 계속 실패 | 다시 실행하면 partial 에서 이어받음 |
-| 프록시 뒤에서 레지스트리에 못 닿음 | Node `fetch` 가 `HTTPS_PROXY` 를 무시 | `NODE_USE_ENV_PROXY=1 ollama-fetch pull ...` (Node 24+) |
+| 프록시 뒤에서 레지스트리에 못 닿음 | Node `fetch` 가 `HTTPS_PROXY` 를 무시 | `NODE_USE_ENV_PROXY=1 ollama-fetch pull ...` (최근 Node.js 버전만 지원) |
 | 큰 모델을 다시 실행하면 시작이 느림 | 실행마다 기존 블롭을 다시 해시함(GB 당 몇 초) | 정상입니다. 확인이 끝날 때까지 기다리세요 |
 | 같은 모델을 동시에 두 번 pull 하면 낭비 | 프로세스 간 잠금이 없음 | 모델당 한 번에 하나만 실행하세요 |
 | `ollama list` 에 모델이 안 보임 | 모델 폴더가 다름 | 서버의 `OLLAMA_MODELS` 와 같은 값을 `--models-dir` 로 지정 |
@@ -186,10 +185,12 @@ flowchart LR
 ## 개발·기여
 
 ```bash
-npm test
+npm test            # 단위 테스트: 메모리 모의 레지스트리, 가짜 시계, 소켓·실제 대기 없음
+npm run test:net    # 실제 로컬 소켓 테스트(HTTP 모의 레지스트리, 장애 주입)
+npm run test:e2e    # 선택·수동: Hugging Face 에서 작은 파일을 받음(Ollama 레지스트리 아님), 인터넷 필요
 ```
 
-테스트는 실제 로컬 HTTP 모의 레지스트리와 합성 GGUF 로 돌고, 장애(끊김·멈춤·Range 무시·손상 바이트)를 주입합니다. 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md).
+`npm test` 는 외부와 격리돼 있어, 소켓을 여는 테스트는 네트워크 가드가 실패시킵니다. 소켓 테스트는 장애(끊김·멈춤·Range 무시·손상 바이트)를 주입합니다. 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md).
 
 ## 라이선스
 MIT. 데모는 합성 데이터만 쓰며 모델 파일은 포함하지 않습니다.

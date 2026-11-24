@@ -34,7 +34,7 @@ Exit codes: 0 ok, 1 usage error, 2 bad input, 3 digest mismatch, 4 network failu
   hint_help: "Run 'ollama-fetch --help' for usage.",
   interrupted: 'Interrupted. Partial downloads are kept; run the same command again to resume.',
   proxy_hint:
-    'note: HTTPS_PROXY is set but Node.js fetch ignores it unless NODE_USE_ENV_PROXY=1 is also set (Node 24+).',
+    'note: HTTPS_PROXY is set but Node.js fetch ignores it unless NODE_USE_ENV_PROXY=1 is also set (recent Node.js releases only).',
 
   err_unknown_command: "unknown command '{command}' (use pull, merge or demo)",
   err_unknown_option: 'unknown option {option}',

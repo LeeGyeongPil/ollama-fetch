@@ -1,17 +1,17 @@
-// AC-9: 영어·한국어 화면 — --lang · OLLAMA_FETCH_LANG · LANG 우선순위, 메시지 키 집합 동일
+// AC-7: 영어·한국어 화면 — --lang · OLLAMA_FETCH_LANG · LANG 우선순위, 메시지 키 집합 동일
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { MESSAGES, resolveLang } from '../src/i18n.js';
-import { main } from '../src/main.js';
-import { en } from '../src/messages/en.js';
-import { ko } from '../src/messages/ko.js';
-import { captureCtx } from './helpers.js';
+import { MESSAGES, resolveLang } from '../../src/i18n.js';
+import { main } from '../../src/main.js';
+import { en } from '../../src/messages/en.js';
+import { ko } from '../../src/messages/ko.js';
+import { captureCtx } from '../support/helpers.js';
 
 function placeholders(text: string): string[] {
   return [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 }
 
-describe('AC-9 bilingual UI', () => {
+describe('AC-7 bilingual UI', () => {
   it('en and ko have exactly the same keys and the same {placeholders}', () => {
     const enKeys = Object.keys(en).sort();
     const koKeys = Object.keys(ko).sort();

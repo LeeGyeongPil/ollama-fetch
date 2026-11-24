@@ -36,7 +36,7 @@ demo 옵션:
   hint_help: "사용법은 'ollama-fetch --help' 로 볼 수 있습니다.",
   interrupted: '중단했습니다. 받던 파일은 남겨 두었으니 같은 명령을 다시 실행하면 이어서 받습니다.',
   proxy_hint:
-    '참고: HTTPS_PROXY 가 설정돼 있지만 Node.js fetch 는 NODE_USE_ENV_PROXY=1 도 함께 있어야 프록시를 씁니다(Node 24+).',
+    '참고: HTTPS_PROXY 가 설정돼 있지만 Node.js fetch 는 NODE_USE_ENV_PROXY=1 도 함께 있어야 프록시를 씁니다(최근 Node.js 버전만 지원).',
 
   err_unknown_command: "알 수 없는 명령 '{command}' (pull, merge, demo 중 하나)",
   err_unknown_option: '알 수 없는 옵션 {option}',

@@ -4,11 +4,11 @@ import { readFileSync } from 'node:fs';
 import { readdir, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { after, describe, it } from 'node:test';
-import { buildHeader, getKv, GgufType, readGguf, tensorNbytes, type GgufHeader } from '../src/gguf.js';
-import { main } from '../src/main.js';
-import { mergeToFile, planMerge } from '../src/merge.js';
-import { encodeModel, synthModel, writeSplitModel } from '../src/mock/synth-gguf.js';
-import { captureCtx, cleanupTempDirs, repoRoot, sha256Hex, sha256OfFile, tempDir } from './helpers.js';
+import { buildHeader, getKv, GgufType, readGguf, tensorNbytes, type GgufHeader } from '../../src/gguf.js';
+import { main } from '../../src/main.js';
+import { mergeToFile, planMerge } from '../../src/merge.js';
+import { encodeModel, synthModel, writeSplitModel } from '../../src/mock/synth-gguf.js';
+import { captureCtx, cleanupTempDirs, repoRoot, sha256Hex, sha256OfFile, tempDir } from '../support/helpers.js';
 
 after(cleanupTempDirs);
 

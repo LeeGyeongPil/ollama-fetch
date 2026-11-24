@@ -1,22 +1,21 @@
-// 선택 실측(AC 아님): OLLAMA_FETCH_E2E=1 일 때만 실제 Hugging Face 에서 분할 GGUF 3개(26.7 MB)를
+// 수동 실측(AC 아님, `npm run test:e2e`): 실제 Hugging Face 에서 분할 GGUF 3개(26.7 MB)를
 // 같은 다운로더(Range·버킷·sha256)로 받고 병합한다. 프록시 환경이면 NODE_USE_ENV_PROXY=1 도 필요하다.
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
-import { downloadBlob } from '../src/download.js';
-import { mergeToFile, planMerge } from '../src/merge.js';
-import { TokenBucket } from '../src/ratelimit.js';
-import { cleanupTempDirs, tempDir } from './helpers.js';
+import { downloadBlob } from '../../src/download.js';
+import { mergeToFile, planMerge } from '../../src/merge.js';
+import { TokenBucket } from '../../src/ratelimit.js';
+import { cleanupTempDirs, tempDir } from '../support/helpers.js';
 
 after(cleanupTempDirs);
 
 const REPO = 'ngxson/tinyllama_split_test';
 // 같은 샤드를 llama.cpp 로더(Ollama 0.40.15)가 정상 로드한 병합본의 sha256 (2026-11-24 확인)
 const MERGED_SHA256 = '2eda49203f2f044f3dddf29a7dd7cc861ef5a0340f518a19613d73ba6d9c06b6';
-const enabled = process.env.OLLAMA_FETCH_E2E === '1';
 
-describe('optional real-network E2E', () => {
-  it('downloads HF split shards under a rate cap and merges them', { skip: enabled ? false : 'set OLLAMA_FETCH_E2E=1' }, async () => {
+describe('real-network E2E (manual)', () => {
+  it('downloads HF split shards under a rate cap and merges them', async () => {
     const dir = await tempDir();
     const tree = (await (await fetch(`https://huggingface.co/api/models/${REPO}/tree/main`)).json()) as {
       path: string;

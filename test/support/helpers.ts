@@ -1,14 +1,13 @@
-// 테스트 공용 도구: 임시 폴더, main() 출력 잡기, 가짜 시계, 파일 해시
+// 테스트 공용 도구: 임시 폴더, main() 출력 잡기, 파일 해시, 결정적 바이트
 import { createHash } from 'node:crypto';
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { CliContext } from '../src/main.js';
-import type { Clock } from '../src/ratelimit.js';
+import type { CliContext } from '../../src/main.js';
 
-/** 레포 루트(dist/test/helpers.js 기준 두 단계 위) */
-export const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+/** 레포 루트(dist/test/support/helpers.js 기준 세 단계 위) */
+export const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 export const cliPath = join(repoRoot, 'dist', 'src', 'cli.js');
 
 const made: string[] = [];
@@ -41,19 +40,6 @@ export function captureCtx(env: NodeJS.ProcessEnv = { LANG: 'en_US.UTF-8' }, ext
     ...extra,
   };
   return { ctx, out: () => out, err: () => err };
-}
-
-/** 가짜 시계: sleep 하면 시간이 그만큼 즉시 흐른다 */
-export class FakeClock implements Clock {
-  t = 0;
-  sleeps = 0;
-  now(): number {
-    return this.t;
-  }
-  async sleep(ms: number): Promise<void> {
-    this.sleeps += 1;
-    this.t += ms;
-  }
 }
 
 export function sha256Hex(data: Buffer): string {

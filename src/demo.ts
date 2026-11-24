@@ -1,16 +1,31 @@
-// 오프라인 데모: 연습용 모의 레지스트리(127.0.0.1)와 합성 GGUF 로 전체 흐름을 실제 CLI 명령 그대로 보여 준다.
+// 오프라인 데모: 연습용 모의 레지스트리와 합성 GGUF 로 전체 흐름을 실제 CLI 명령 그대로 보여 준다.
 // 속도 제한 받기 → 40% 지점 강제 끊김 → Range 이어받기 → 다이제스트 검증 → 다시 실행(요청 0) → 분할 병합·등록.
+// 전송은 두 가지다: 'http'(기본, CLI 의 demo — 127.0.0.1 실제 HTTP 서버)와
+// 'memory'(단위 테스트 — 같은 모의 처리기를 메모리 fetch 로, 가짜 시계와 함께. 소켓·실제 대기 없음).
 import { mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import type { Lang, Translate } from './i18n.js';
 import type { CliContext } from './main.js';
-import { sha256Digest, startMockRegistry, tinyModelLayers } from './mock/registry-server.js';
+import { createMockRegistry, type MockOptions, sha256Digest, startMockRegistry, tinyModelLayers } from './mock/registry-server.js';
 import { encodeModel, synthModel, writeSplitModel } from './mock/synth-gguf.js';
 import { formatBytes } from './plan.js';
+import type { Clock } from './ratelimit.js';
 import { Printer } from './report.js';
 
 type Run = (argv: string[], ctx: CliContext) => Promise<number>;
+
+export type DemoTransport = 'http' | 'memory';
+
+/** 모의 레지스트리를 고른 전송으로 띄운다. 돌려준 ctx 를 pull 명령에 쓴다 */
+async function openRegistry(transport: DemoTransport, options: MockOptions, base: CliContext) {
+  if (transport === 'memory') {
+    const registry = createMockRegistry(options);
+    return { url: registry.url, blobRequests: registry.blobRequests, ctx: { ...base, fetchImpl: registry.fetch }, close: async () => undefined };
+  }
+  const registry = await startMockRegistry(options);
+  return { url: registry.url, blobRequests: registry.blobRequests, ctx: base, close: registry.close };
+}
 
 class StepFailed extends Error {
   constructor(readonly code: number) {
@@ -28,17 +43,27 @@ async function listFiles(dir: string): Promise<string[]> {
   return out.sort();
 }
 
-export async function runDemo(options: { ctx: CliContext; t: Translate; lang: Lang; keep: boolean; run: Run }): Promise<number> {
+export async function runDemo(options: {
+  ctx: CliContext;
+  t: Translate;
+  lang: Lang;
+  keep: boolean;
+  run: Run;
+  /** 기본 'http'(127.0.0.1 실제 서버). 단위 테스트는 'memory' */
+  transport?: DemoTransport;
+  /** 속도 상한·재시도 대기에 쓸 시계(단위 테스트: 가짜 시계) */
+  clock?: Clock;
+}): Promise<number> {
   const { ctx, t, lang, run } = options;
   const printer = new Printer(ctx);
   const root = await mkdtemp(join(tmpdir(), 'ollama-fetch-demo-'));
   const modelsDir = join(root, 'models');
   // 데모 안에서는 재시도 대기를 0.5초로 줄인다(실제 기본값은 1초, 2초, 4초 …)
-  const demoCtx: CliContext = { ...ctx, retryDelayMs: () => 500 };
+  const demoCtx: CliContext = { ...ctx, retryDelayMs: () => 500, clock: options.clock ?? ctx.clock };
   const show = (argv: string[]) => printer.line(`\n$ ollama-fetch ${argv.join(' ')}`);
-  const exec = async (argv: string[]) => {
+  const exec = async (argv: string[], stepCtx: CliContext = demoCtx) => {
     show(argv);
-    const code = await run([...argv, '--lang', lang], demoCtx);
+    const code = await run([...argv, '--lang', lang], stepCtx);
     // 단계가 실패하면(오류 문구는 그 명령이 이미 출력했다) 같은 종료 코드로 데모를 끝낸다
     if (code !== 0) throw new StepFailed(code);
   };
@@ -48,21 +73,25 @@ export async function runDemo(options: { ctx: CliContext; t: Translate; lang: La
 
     // 1) 합성 모델(약 3 MiB)을 올린 모의 레지스트리. 모델 블롭은 40% 지점에서 한 번 끊는다.
     const gguf = encodeModel(synthModel({ scale: 10 }));
-    const registry = await startMockRegistry({
-      models: [{ namespace: 'library', repo: 'tiny', tag: 'latest', layers: tinyModelLayers(gguf) }],
-      faults: { drop: { digest: sha256Digest(gguf), fraction: 0.4, times: 1 } },
-    });
+    const registry = await openRegistry(
+      options.transport ?? 'http',
+      {
+        models: [{ namespace: 'library', repo: 'tiny', tag: 'latest', layers: tinyModelLayers(gguf) }],
+        faults: { drop: { digest: sha256Digest(gguf), fraction: 0.4, times: 1 } },
+      },
+      demoCtx,
+    );
     try {
       const pullArgs = ['pull', 'tiny', '--registry', registry.url, '--limit-rate', '2M', '--connections', '2', '--models-dir', modelsDir];
       printer.line('');
       printer.line(t('demo_step_pull', { rate: '2.0 MiB/s', connections: 2 }));
-      await exec(pullArgs);
+      await exec(pullArgs, registry.ctx);
 
       // 2) 같은 명령을 다시: 블롭이 다 있으니 모의 서버에 블롭 요청이 가지 않는다
       printer.line('');
       printer.line(t('demo_step_rerun'));
       const before = registry.blobRequests();
-      await exec(pullArgs);
+      await exec(pullArgs, registry.ctx);
       printer.line(t('demo_rerun_result', { requests: registry.blobRequests() - before }));
     } finally {
       await registry.close();

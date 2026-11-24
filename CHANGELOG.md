@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 - 2026-11-24
+- Requires Node.js 22 or newer (`engines >=22`). Node 20 reached end of life on 2026-04-30.
+- Tests: `npm test` now runs only the hermetic unit suite (`test/unit`): an in-memory mock registry, a fake clock and a network guard, so no sockets and no real waiting. Real-socket tests moved to `npm run test:net`, the real-internet test to `npm run test:e2e` (the `OLLAMA_FETCH_E2E` switch is gone).
+- CI: one job on `ubuntu-latest` with Node 22, actions pinned to full commit SHAs, only `npm ci` and `npm test`.
+- No change to `pull`, `merge` or `demo` behavior or output.
+
 ## 0.1.4 - 2026-11-24
 - Fix: network error messages show the real reason (for example a proxy refusing the tunnel) instead of a bare `0`.
 

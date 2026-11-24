@@ -1,13 +1,16 @@
-// 보조 단위 테스트: 모델 참조 해석, 속도·크기 형식, config 블롭
+// 보조 단위 테스트: 네트워크 오류 이유, 모델 참조 해석, 속도·크기 형식, config 블롭, CLI 기본 동작
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { describe, it } from 'node:test';
-import { buildConfig, fileTypeName, humanParams } from '../src/config.js';
-import { InputError } from '../src/errors.js';
-import { GgufType } from '../src/gguf.js';
-import { formatBytes, formatDuration, parseRate } from '../src/plan.js';
-import { manifestPath, parseRef, refShort } from '../src/ref.js';
-import { describeNetError } from '../src/registry.js';
-import { digestHex, resolveModelsDir } from '../src/store.js';
+import { buildConfig, fileTypeName, humanParams } from '../../src/config.js';
+import { InputError } from '../../src/errors.js';
+import { GgufType } from '../../src/gguf.js';
+import { main, packageVersion } from '../../src/main.js';
+import { formatBytes, formatDuration, parseRate } from '../../src/plan.js';
+import { manifestPath, parseRef, refShort } from '../../src/ref.js';
+import { describeNetError } from '../../src/registry.js';
+import { digestHex, resolveModelsDir } from '../../src/store.js';
+import { captureCtx, cliPath } from '../support/helpers.js';
 
 describe('network error reasons', () => {
   it('uses the string code of the direct cause, else the innermost message', () => {
@@ -100,5 +103,37 @@ describe('config blob', () => {
     assert.equal(json.model_family, 'qwen3');
     assert.equal(json.file_type, 'Q4_K_M');
     assert.equal(json.model_type, '1M');
+  });
+});
+
+describe('CLI basics', () => {
+  it('--help, --version and usage errors (exit 1)', async () => {
+    const help = captureCtx();
+    assert.equal(await main(['--help'], help.ctx), 0);
+    assert.match(help.out(), /Usage:/);
+    const version = captureCtx();
+    assert.equal(await main(['--version'], version.ctx), 0);
+    assert.equal(version.out().trim(), packageVersion());
+    const unknown = captureCtx();
+    assert.equal(await main(['frobnicate'], unknown.ctx), 1);
+    assert.match(unknown.err(), /unknown command/);
+    const badRate = captureCtx();
+    assert.equal(await main(['pull', 'tiny', '--limit-rate', 'fast'], badRate.ctx), 1);
+    assert.match(badRate.err(), /--limit-rate/);
+    const negativeRate = captureCtx();
+    assert.equal(await main(['pull', 'llama3.2:1b', '--limit-rate', '-5M', '--lang', 'en'], negativeRate.ctx), 1);
+    assert.match(negativeRate.err(), /invalid --limit-rate '-5M'/);
+    const wrongCmd = captureCtx();
+    assert.equal(await main(['merge', 'x.gguf', '--limit-rate', '1M'], wrongCmd.ctx), 1);
+    const badOpt = captureCtx();
+    assert.equal(await main(['pull', 'tiny', '--nope'], badOpt.ctx), 1);
+    assert.match(badOpt.err(), /--nope/);
+  });
+
+  it('the installed bin (dist/src/cli.js) starts and prints its version', () => {
+    // 자식 프로세스는 파이프만 쓴다(네트워크 없음). bin 의 진입점 연결이 살아 있는지만 본다.
+    const r = spawnSync(process.execPath, [cliPath, '--version'], { encoding: 'utf8', env: { PATH: process.env.PATH, LANG: 'C.UTF-8' } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout.trim(), packageVersion());
   });
 });

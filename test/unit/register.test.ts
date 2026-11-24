@@ -1,14 +1,14 @@
-// AC-8: merge --register — 병합본이 blobs/sha256-<해시> 로, config·매니페스트의 다이제스트·크기가 실제 파일과 일치
+// AC-6: merge --register — 병합본이 blobs/sha256-<해시> 로, config·매니페스트의 다이제스트·크기가 실제 파일과 일치
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
-import { mergeAndRegister } from '../src/config.js';
-import { main } from '../src/main.js';
-import { planMerge } from '../src/merge.js';
-import { synthModel, writeSplitModel } from '../src/mock/synth-gguf.js';
-import { parseRef } from '../src/ref.js';
-import { captureCtx, cleanupTempDirs, listTree, sha256OfFile, tempDir } from './helpers.js';
+import { mergeAndRegister } from '../../src/config.js';
+import { main } from '../../src/main.js';
+import { planMerge } from '../../src/merge.js';
+import { synthModel, writeSplitModel } from '../../src/mock/synth-gguf.js';
+import { parseRef } from '../../src/ref.js';
+import { captureCtx, cleanupTempDirs, listTree, sha256OfFile, tempDir } from '../support/helpers.js';
 
 after(cleanupTempDirs);
 
@@ -22,7 +22,7 @@ function blobFile(modelsDir: string, digest: string): string {
   return join(modelsDir, 'blobs', digest.replace(':', '-'));
 }
 
-describe('AC-8 merge --register', () => {
+describe('AC-6 merge --register', () => {
   it('registers the merged model with matching digests and sizes', async () => {
     const work = await tempDir();
     const modelsDir = await tempDir();

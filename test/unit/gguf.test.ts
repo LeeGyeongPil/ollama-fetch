@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
-import { GgufFormatError, InputError } from '../src/errors.js';
-import { buildHeader, getKv, type GgufArray, GgufType, readGguf, tensorNbytes } from '../src/gguf.js';
-import { encodeGguf, encodeModel, synthModel } from '../src/mock/synth-gguf.js';
-import { cleanupTempDirs, sha256Hex, tempDir } from './helpers.js';
+import { GgufFormatError, InputError } from '../../src/errors.js';
+import { buildHeader, getKv, type GgufArray, GgufType, readGguf, tensorNbytes } from '../../src/gguf.js';
+import { encodeGguf, encodeModel, synthModel } from '../../src/mock/synth-gguf.js';
+import { cleanupTempDirs, sha256Hex, tempDir } from '../support/helpers.js';
 
 after(cleanupTempDirs);
 
