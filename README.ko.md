@@ -77,7 +77,7 @@ ollama-fetch pull llama3.2:1b --limit-rate 3M
 종료 코드: `0` 성공, `1` 사용법 오류, `2` 입력 문제(GGUF 아님·샤드 빠짐·모델 이름 형식·쓰기 권한), `3` 해시 불일치, `4` 네트워크 실패, `130` 중단(partial 파일을 남기므로 다시 실행하면 이어받음).
 
 ### 받기 전에 미리 보기
-`--dry-run` 은 레지스트리(여기서는 `ollama-fetch demo` 가 띄우는 로컬 모의 레지스트리, 직접 쓸 때는 `--registry <url>`)의 레이어를 나열하고 상한 기준 예상 시간을 계산합니다(`--lang ko` 출력).
+`--dry-run` 은 `--registry <url>` 로 지정한 레지스트리(아래 출력은 테스트용 로컬 모의 레지스트리에서 얻은 것)의 레이어를 나열하고 상한 기준 예상 시간을 계산합니다(`--lang ko` 출력).
 
 ```
 모델        registry.ollama.ai/library/tiny:latest
@@ -100,7 +100,7 @@ application/vnd.ollama.image.params             31 B     없음  sha256:82e0284d
 
 ```bash
 ollama-fetch merge model-00001-of-00003.gguf --register my-model
-ollama run my-model
+ollama run my-model   # 채팅 템플릿은 등록되지 않음, "한계와 로드맵" 참고
 ```
 
 샤드가 모두 있는지, `split.*` 메타데이터가 서로 맞는지 확인한 뒤 SHA-256 을 계산하며 하나의 GGUF 로 쓰고, `blobs/sha256-<해시>` 로 저장하고 Ollama 매니페스트를 만듭니다. 샤드가 빠지면 아무것도 쓰지 않습니다.
@@ -145,6 +145,29 @@ flowchart LR
 ## 언제 쓰나
 - 잘 맞는 경우: 속도가 제한되거나 불안정한 회선, 해시로 확인하는 반복 가능한 pull, 이미 받은 분할 GGUF 병합.
 - 다른 도구: 빠르고 단순한 pull 은 [`ollama pull`](https://github.com/ollama/ollama), llama.cpp 소스에서 병합 파일을 만들 때는 [llama.cpp 의 `llama-gguf-split`](https://github.com/ggml-org/llama.cpp).
+
+## 비교
+
+2026-11-24 에 각 프로젝트의 README 와 이슈로 확인했습니다. "언급 없음"은 문서에 적혀 있지 않다는 뜻이지 불가능하다는 뜻이 아닙니다.
+
+| 도구 | 속도 제한 | 이어받기 | 다이제스트 검증 | 분할 GGUF 병합 | `OLLAMA_MODELS` 등록 |
+|---|---|---|---|---|---|
+| ollama-fetch | 있음 (`--limit-rate`) | 있음 (Range) | 있음 (SHA-256) | 있음 (llama.cpp 불필요) | 있음 |
+| [`ollama pull`](https://github.com/ollama/ollama) | 없음 (열린 PR #19288, #15219) | 있음 | 있음 | 없음 | 있음 |
+| [`llama-gguf-split --merge`](https://github.com/ggml-org/llama.cpp) | 해당 없음 | 해당 없음 | 없음 | 있음 (llama.cpp 빌드 필요) | 없음 |
+| [odir](https://github.com/anirbanbasu/odir) 0.2.0 (Rust) | 언급 없음 | 있음 | "verified blobs" 언급 | 언급 없음 | `models_path` 설정 사용 |
+| [ollama-dl](https://github.com/codexdeep/ollama-dl) (Go) | 없음 (`-j` 동시 수만) | 있음 (`.part` + Range) | 있음 (`verify --fix`) | 없음 | 언급 없음 |
+
+출처: [odir README](https://docs.rs/crate/odir/latest/source/README.md), 위에 링크한 저장소들.
+
+## 한계와 로드맵
+
+- **병합한 모델에는 채팅 템플릿이 없습니다.** `merge --register` 는 config 와 model 레이어만 씁니다. `ollama run my-model` 은 동작하지만 템플릿을 추가하기 전에는 채팅 모델이 엉뚱하게 답할 수 있습니다. `FROM my-model` 과 원본 모델 카드의 `TEMPLATE ...` 블록이 든 `Modelfile` 을 만든 뒤 `ollama create my-model -f Modelfile` 을 실행하세요.
+- 실제 `registry.ollama.ai` 받기는 빌드 환경에서 확인하지 못했습니다(호스트가 차단됨). 받기 경로(리다이렉트, Range, SHA-256)는 Hugging Face CDN 과 로컬 모의 레지스트리로 확인했습니다.
+- Windows 는 테스트하지 않았습니다. `--models-dir` 또는 `OLLAMA_MODELS` 를 쓰세요.
+- 예정 M2: `pull hf.co/<user>/<repo>[:quant]`, 템플릿·시스템 프롬프트·파라미터도 함께 가져옵니다.
+- 예정 M3: 큰 블롭을 Range 조각으로 나눠 동시에 받기, 디스크 여유 공간 사전 검사.
+- 본체 Ollama 에 속도 제한이 들어오면 속도 제한만 필요한 경우는 `ollama pull` 로 충분해집니다. 그때 이 도구는 분할 GGUF 병합과 해시로 확인하는 반복 가능한 받기에서 쓸모가 큽니다.
 
 ## 자주 겪는 문제
 

@@ -77,7 +77,7 @@ ollama-fetch pull llama3.2:1b --limit-rate 3M
 Exit codes: `0` ok, `1` usage error, `2` bad input (not a GGUF, missing shard, bad model name, no write permission), `3` digest mismatch, `4` network failure, `130` interrupted (the partial file is kept, run again to resume).
 
 ### Preview before downloading
-Against a registry (here the demo's local mock one, started by `ollama-fetch demo`; for yours, pass `--registry <url>`) `--dry-run` lists every layer and estimates the time at your cap:
+With `--registry <url>` pointing at a registry (the output below is from a local mock registry used for testing), `--dry-run` lists every layer and estimates the time at your cap:
 
 ```
 Model       registry.ollama.ai/library/tiny:latest
@@ -100,7 +100,7 @@ Put all shards in one folder, then point at the first one:
 
 ```bash
 ollama-fetch merge model-00001-of-00003.gguf --register my-model
-ollama run my-model
+ollama run my-model   # no chat template is registered, see "Limitations & roadmap"
 ```
 
 It checks that every shard is there and that the `split.*` metadata agrees, writes one GGUF while computing its SHA-256, stores it as `blobs/sha256-<hash>` and writes an Ollama manifest. If a shard is missing nothing is written:
@@ -145,6 +145,29 @@ flowchart LR
 ## When to use it
 - Good fit: capped or flaky connections, repeatable pulls with a hash check, and merging split GGUF files you already have.
 - Other tools: for a plain, fast pull use [`ollama pull`](https://github.com/ollama/ollama); to build merged files from llama.cpp sources use [llama.cpp's `llama-gguf-split`](https://github.com/ggml-org/llama.cpp).
+
+## Comparison
+
+Checked 2026-11-24 from each project's README and issues. "not mentioned" means the project's docs do not say, not that it is impossible.
+
+| Tool | Rate cap | Resume | Digest check | Split GGUF merge | Registers into `OLLAMA_MODELS` |
+|---|---|---|---|---|---|
+| ollama-fetch | yes (`--limit-rate`) | yes (Range) | yes (SHA-256) | yes (no llama.cpp needed) | yes |
+| [`ollama pull`](https://github.com/ollama/ollama) | no (open PRs #19288, #15219) | yes | yes | no | yes |
+| [`llama-gguf-split --merge`](https://github.com/ggml-org/llama.cpp) | n/a | n/a | no | yes (needs a llama.cpp build) | no |
+| [odir](https://github.com/anirbanbasu/odir) 0.2.0 (Rust) | not mentioned | yes | "verified blobs" | not mentioned | uses a `models_path` setting |
+| [ollama-dl](https://github.com/codexdeep/ollama-dl) (Go) | no (only `-j` for parallel count) | yes (`.part` + Range) | yes (`verify --fix`) | no | not mentioned |
+
+Sources: [odir README](https://docs.rs/crate/odir/latest/source/README.md), the repositories linked above.
+
+## Limitations & roadmap
+
+- **Merged models have no chat template.** `merge --register` writes only the config and model layers. `ollama run my-model` works, but a chat model may answer badly until you add a template. Write a `Modelfile` with `FROM my-model` and a `TEMPLATE ...` block copied from the original model card, then run `ollama create my-model -f Modelfile`.
+- The real `registry.ollama.ai` pull was not verified in the build environment (the host was blocked). The download path (redirect, Range, SHA-256) was verified against Hugging Face's CDN and a local mock registry.
+- Windows is untested; use `--models-dir` or `OLLAMA_MODELS` there.
+- Planned M2: `pull hf.co/<user>/<repo>[:quant]`, which also brings the template, system prompt and parameters over.
+- Planned M3: download one big blob in parallel Range chunks, check free disk space first.
+- If core Ollama adds its own rate limit, plain `ollama pull` covers the capping use case; this tool would then matter mostly for split-GGUF merging and hash-checked repeatable pulls.
 
 ## Troubleshooting
 
