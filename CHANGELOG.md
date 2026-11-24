@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.4 - 2026-11-24
+- Fix: network error messages show the real reason (for example a proxy refusing the tunnel) instead of a bare `0`.
+
 ## 0.1.3 - 2026-11-24
 - CI: simplified workflow (one Linux runner, Node 20/22/24, named steps, environment diagnostics, no dependency cache).
 
