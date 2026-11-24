@@ -1,6 +1,6 @@
 {
   "name": "ollama-fetch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Rate-limited, resumable, digest-verified Ollama model downloader that also merges split GGUF shards and registers them in OLLAMA_MODELS.",
   "keywords": [
     "ollama",
@@ -36,7 +36,7 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "test": "tsc -p . && node --test dist/test/",
+    "test": "tsc -p . && node scripts/run-tests.mjs",
     "demo": "tsc -p . && node dist/src/cli.js demo",
     "prepare": "tsc -p ."
   },
