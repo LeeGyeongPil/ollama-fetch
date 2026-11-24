@@ -1,0 +1,13 @@
+{
+  "note": "Expected merge result of the synthetic 3-shard GGUF from src/mock/synth-gguf.ts (synthModel({ alignment }), splitModel(model, 3)). Verified independently with gguf-py 0.19.0: 22 tensors, 0 byte mismatches, 0 split.* keys, all offsets aligned.",
+  "align32": {
+    "sha256": "b70c4912b71db7a0d266e41adce6e1d3e5bcbdfe040fb95a11582a39e75ac5c4",
+    "size": 35648,
+    "tensors": 22
+  },
+  "align64": {
+    "sha256": "10a78f50c7c72a5ae8b8684a8e50de683c047e995dcdfa450a75e8d97bea9749",
+    "size": 35712,
+    "tensors": 22
+  }
+}
