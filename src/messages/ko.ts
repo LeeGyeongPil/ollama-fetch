@@ -30,7 +30,7 @@ demo 옵션:
   --lang <en|ko>           화면 언어 (기본: $OLLAMA_FETCH_LANG → LC_ALL / LC_MESSAGES / LANG)
 
 모델 이름 예: llama3.2:1b, library/qwen3:8b, registry.ollama.ai/library/smollm:135m
-종료 코드: 0 성공, 1 사용법 오류, 2 입력 오류, 3 다이제스트 불일치, 4 네트워크 실패`,
+종료 코드: 0 성공, 1 사용법 오류, 2 입력 오류, 3 다이제스트 불일치, 4 네트워크 실패, 130 중단됨(다시 실행하면 이어받기)`,
 
   error_line: '오류: {message}',
   hint_help: "사용법은 'ollama-fetch --help' 로 볼 수 있습니다.",

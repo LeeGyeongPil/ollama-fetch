@@ -28,7 +28,7 @@ common options:
   --lang <en|ko>           UI language (default: $OLLAMA_FETCH_LANG, then LC_ALL / LC_MESSAGES / LANG)
 
 Model names: llama3.2:1b, library/qwen3:8b, registry.ollama.ai/library/smollm:135m
-Exit codes: 0 ok, 1 usage error, 2 bad input, 3 digest mismatch, 4 network failure`,
+Exit codes: 0 ok, 1 usage error, 2 bad input, 3 digest mismatch, 4 network failure, 130 interrupted (run again to resume)`,
 
   error_line: 'error: {message}',
   hint_help: "Run 'ollama-fetch --help' for usage.",

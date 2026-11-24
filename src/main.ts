@@ -82,6 +82,9 @@ function toUsageError(err: unknown): UsageError {
 }
 
 function parseCli(argv: string[]) {
+  // `--limit-rate -5M`: parseArgs 는 '-' 로 시작하는 값을 '값 없음'으로 보므로 먼저 걸러 정확한 오류를 낸다
+  const at = argv.indexOf('--limit-rate');
+  if (at >= 0 && /^-\d/.test(argv[at + 1] ?? '')) throw new UsageError('err_bad_rate', { value: argv[at + 1] });
   try {
     return parseArgs({ args: argv, options: OPTIONS, allowPositionals: true, strict: true });
   } catch (err) {

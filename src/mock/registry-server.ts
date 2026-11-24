@@ -29,6 +29,8 @@ export interface MockFaults {
   ignoreRange?: boolean;
   /** 이 다이제스트는 항상 바이트 하나가 뒤집힌 내용을 준다 */
   corrupt?: string;
+  /** 이 다이제스트는 선언된 크기보다 바이트를 더 붙여서 준다(잘못된 미러) */
+  oversize?: string;
   /** 매니페스트를 404 로 */
   missingManifest?: boolean;
 }
@@ -162,6 +164,7 @@ export async function startMockRegistry(options: { models: MockModel[]; faults?:
         body = Buffer.from(body);
         body[Math.floor(body.length / 2)] ^= 0xff; // 가운데 바이트 하나를 뒤집는다
       }
+      if (faults.oversize === digest) body = Buffer.concat([body, Buffer.alloc(4096, 0x61)]);
       const size = body.length;
       const rangeMatch = range ? /^bytes=(\d+)-$/.exec(range) : null;
       let start = 0;

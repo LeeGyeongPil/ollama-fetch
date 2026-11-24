@@ -139,6 +139,7 @@ export async function downloadBlob(options: DownloadOptions): Promise<DownloadRe
       try {
         file = await open(partial, start > 0 ? 'a' : 'w');
       } catch (err) {
+        await res.body.cancel().catch(() => undefined); // 소켓을 GC 까지 붙들고 있지 않게
         throw wrapFsError(err, partial);
       }
 
@@ -149,6 +150,13 @@ export async function downloadBlob(options: DownloadOptions): Promise<DownloadRe
         const { done, value } = await reader.read();
         disarmStall();
         if (done) break;
+        // 서버가 매니페스트에 적힌 크기보다 많이 보내면 디스크에 쓰기 전에 끊고 partial 을 버린다
+        if (written + value.length > size) {
+          await reader.cancel().catch(() => undefined);
+          reader = undefined;
+          await rm(partial, { force: true });
+          throw new RetryableError(`server sent more than the declared ${size} bytes`);
+        }
         // 핵심: 디스크에 쓰기 전에 공용 버킷에서 토큰을 꺼낸다. 기다리는 동안 소켓은 읽히지 않아 TCP 가 속도를 늦춘다.
         await bucket.take(value.length);
         await file.write(value);

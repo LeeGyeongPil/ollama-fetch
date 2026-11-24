@@ -174,3 +174,22 @@ describe('AC-5 resume and integrity', () => {
     }
   });
 });
+
+describe('oversize response', () => {
+  it('a mirror that sends more than the declared size is cut, the partial is dropped, and nothing is saved', async () => {
+    const registry = await startMockRegistry({ models, faults: { oversize: modelDigest } });
+    try {
+      const modelsDir = await tempDir();
+      const cap = captureCtx();
+      const code = await main(
+        ['pull', 'tiny', '--registry', registry.url, '--models-dir', modelsDir, '--retries', '1'],
+        cap.ctx,
+      );
+      assert.equal(code, 4, cap.err());
+      assert.equal(existsSync(join(modelsDir, 'blobs', `sha256-${modelHex}`)), false);
+      assert.deepEqual((await listTree(modelsDir)).filter((p) => p.includes('partial')), []);
+    } finally {
+      await registry.close();
+    }
+  });
+});

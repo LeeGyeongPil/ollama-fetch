@@ -6,9 +6,10 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 import { promisify } from 'node:util';
+import { main } from '../src/main.js';
 import { startMockRegistry, tinyModelLayers } from '../src/mock/registry-server.js';
 import { encodeModel, synthModel } from '../src/mock/synth-gguf.js';
-import { cleanupTempDirs, cliPath, listTree, repoRoot, tempDir } from './helpers.js';
+import { captureCtx, cleanupTempDirs, cliPath, listTree, repoRoot, tempDir } from './helpers.js';
 
 after(cleanupTempDirs);
 
@@ -90,5 +91,14 @@ describe('CLI basics', () => {
     const badOpt = await cli(['pull', 'tiny', '--nope']);
     assert.equal(badOpt.code, 1);
     assert.match(badOpt.stderr, /--nope/);
+  });
+});
+
+describe('negative --limit-rate', () => {
+  it('reports an invalid rate, not a missing value', async () => {
+    const cap = captureCtx();
+    const code = await main(['pull', 'llama3.2:1b', '--limit-rate', '-5M', '--lang', 'en'], cap.ctx);
+    assert.equal(code, 1);
+    assert.match(cap.err(), /invalid --limit-rate '-5M'/);
   });
 });
