@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 - 2026-11-24
+- Fix: deterministic tests (mock registry closes sockets cleanly, resume test no longer races), per-test timeout in `scripts/run-tests.mjs`, job timeout in CI.
+- Docs: note on how the dry-run example registry is provided.
+
 ## 0.1.1 - 2026-11-24
 - Fix: `npm test` runs on Node 22+ (test files are listed by `scripts/run-tests.mjs` instead of a directory argument).
 - Fix: `--help` and interrupted runs use the documented exit codes (`130` on interrupt); oversized registry responses are rejected cleanly.
