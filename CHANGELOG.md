@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.3 - 2026-11-24
+- CI: simplified workflow (one Linux runner, Node 20/22/24, named steps, environment diagnostics, no dependency cache).
+
 ## 0.1.2 - 2026-11-24
 - Fix: deterministic tests (mock registry closes sockets cleanly, resume test no longer races), per-test timeout in `scripts/run-tests.mjs`, job timeout in CI.
 - Docs: note on how the dry-run example registry is provided.
