@@ -6,7 +6,31 @@ import { InputError } from '../src/errors.js';
 import { GgufType } from '../src/gguf.js';
 import { formatBytes, formatDuration, parseRate } from '../src/plan.js';
 import { manifestPath, parseRef, refShort } from '../src/ref.js';
+import { describeNetError } from '../src/registry.js';
 import { digestHex, resolveModelsDir } from '../src/store.js';
+
+describe('network error reasons', () => {
+  it('uses the string code of the direct cause, else the innermost message', () => {
+    // fetch 연결 거부: TypeError('fetch failed') → cause.code 'ECONNREFUSED'
+    const refused = new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:9'), { code: 'ECONNREFUSED' }) });
+    assert.equal(describeNetError(refused), 'ECONNREFUSED');
+    // 본문 읽다 끊김: TypeError('terminated') → cause.code 'UND_ERR_SOCKET' (데모 출력과 같은 값)
+    const dropped = new TypeError('terminated', { cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }) });
+    assert.equal(describeNetError(dropped), 'UND_ERR_SOCKET');
+    // 코드 없는 원인: 그 메시지
+    assert.equal(describeNetError(new TypeError('fetch failed', { cause: new Error('bad port') })), 'bad port');
+    // 프록시가 터널을 거절(Node 24+ NODE_USE_ENV_PROXY=1): 바로 아래 code 가 숫자 0 → ': 0' 이 아니라 안쪽 이유를 보여 준다
+    const proxied = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('Request was cancelled.', {
+        cause: Object.assign(new Error('Proxy response (403) !== 200 when HTTP Tunneling'), { code: 'UND_ERR_ABORTED' }),
+      }), { code: 0 }),
+    });
+    assert.equal(describeNetError(proxied), 'Proxy response (403) !== 200 when HTTP Tunneling');
+    // 원인 없는 오류(정체 감지 등)와 문자열
+    assert.equal(describeNetError(new Error('no data for 1000 ms')), 'no data for 1000 ms');
+    assert.equal(describeNetError('boom'), 'boom');
+  });
+});
 
 describe('model references', () => {
   it('parses the four accepted forms', () => {

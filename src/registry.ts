@@ -71,10 +71,30 @@ export function blobUrl(ref: ModelRef, digest: string, override?: string): strin
   return `${registryBase(ref, override)}/v2/${ref.namespace}/${ref.repo}/blobs/${digest}`;
 }
 
-/** 네트워크 계층 오류(연결 거부·DNS 등)를 사람이 읽을 이유 문자열로 */
+/**
+ * 네트워크 계층 오류(연결 거부·DNS 등)를 사람이 읽을 이유 문자열로.
+ * fetch 는 TypeError('fetch failed') 로 감싸고 진짜 이유는 cause 사슬 안쪽에 둔다.
+ * 1) 바로 아래 원인(또는 오류 자신)의 문자열 코드: ECONNREFUSED, UND_ERR_SOCKET …
+ * 2) 문자열 코드가 없으면 가장 안쪽 원인의 메시지.
+ *    예: Node 24+ 가 환경 변수 프록시(NODE_USE_ENV_PROXY=1)를 쓰다 프록시가 터널을 거절하면
+ *    바로 아래 원인의 code 는 숫자 0 이고, 이유("Proxy response (403) !== 200 …")는 한 단계 더 안쪽에 있다.
+ */
 export function describeNetError(err: unknown): string {
-  const e = err as { cause?: { code?: string; message?: string }; code?: string; message?: string };
-  return e?.cause?.code ?? e?.code ?? e?.cause?.message ?? e?.message ?? String(err);
+  type ErrLike = { cause?: unknown; code?: unknown; message?: unknown };
+  const chain: ErrLike[] = [];
+  let current: unknown = err;
+  while (current !== null && typeof current === 'object' && chain.length < 8) {
+    chain.push(current as ErrLike);
+    current = (current as ErrLike).cause;
+  }
+  const codeOf = (e: ErrLike | undefined) => (typeof e?.code === 'string' && e.code !== '' ? e.code : undefined);
+  const code = codeOf(chain[1]) ?? codeOf(chain[0]);
+  if (code) return code;
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const message = chain[i].message;
+    if (typeof message === 'string' && message !== '') return message;
+  }
+  return String(err);
 }
 
 export async function fetchManifest(
